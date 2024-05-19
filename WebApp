@@ -1,0 +1,144 @@
+!pip install flask-ngrok
+!pip install transformers
+!pip install torch
+!pip install pyngrok
+
+from flask import Flask, request, jsonify, render_template_string
+from flask_ngrok import run_with_ngrok
+import torch
+from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification, RobertaTokenizerFast, RobertaForSequenceClassification
+from torch.nn.functional import softmax
+import pickle
+
+app = Flask(__name__)
+run_with_ngrok(app)
+
+# Check if GPU is available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Load the emotion model and tokenizer (6 classes)
+emotion_model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=6)
+with open('emotion_model.pkl', 'rb') as f:
+    emotion_model.load_state_dict(pickle.load(f))
+emotion_tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
+emotion_model.to(device)
+emotion_model.eval()
+
+# Load the tweet model and tokenizer (4 classes)
+review_model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=4)
+with open('Prod_model.pkl', 'rb') as f:
+    review_model.load_state_dict(pickle.load(f))
+review_tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
+review_model.to(device)
+review_model.eval()
+
+# Load the review model and tokenizer (4 classes)
+# tweet_model = RobertaForSequenceClassification.from_pretrained('roberta-base', num_labels=4)
+# with open('tweet_model.pkl', 'rb') as f:
+#     tweet_model.load_state_dict(pickle.load(f))
+# tweet_model_tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base')
+# tweet_model.to(device)
+# tweet_model.eval()
+
+# Mapping for sentiment labels (4 classes)
+sentiment_labels = {0: 'Positive', 1: 'Neutral', 2: 'Negative', 3: 'Irrelevant'}
+
+# Mapping for emotion labels (6 classes)
+emotion_labels = {0: 'sadness', 1: 'joy', 2: 'love', 3: 'anger', 4: 'fear', 5: 'surprise'}
+
+def predict_sentiment(model, tokenizer, text, labels_mapping):
+    # Tokenize the text
+    encoding = tokenizer.encode_plus(
+        text,
+        add_special_tokens=True,
+        max_length=128,
+        return_token_type_ids=False,
+        padding='max_length',
+        return_attention_mask=True,
+        truncation=True,
+        return_tensors='pt',
+    )
+
+    # Move tensors to the same device as the model
+    input_ids = encoding['input_ids'].to(device)
+    attention_mask = encoding['attention_mask'].to(device)
+
+    # Predict
+    with torch.no_grad():
+        outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+        logits = outputs.logits
+
+    # Convert logits to probabilities and then to class labels
+    probs = softmax(logits, dim=-1)
+    predicted_class = torch.argmax(probs, dim=-1).item()  # Get the predicted class index
+    confidence_score = torch.max(probs).item()  # Get the confidence score
+
+    # Map the predicted class index back to the class label
+    predicted_label = labels_mapping[predicted_class]
+    return predicted_label, confidence_score
+
+@app.route('/')
+def home():
+    return render_template_string('''
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Sentiment Analysis</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                form { margin-bottom: 20px; }
+                textarea { width: 100%; height: 100px; padding: 10px; font-size: 16px; }
+                input[type="submit"] { padding: 10px 20px; font-size: 16px; }
+                #result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+            </style>
+        </head>
+        <body>
+            <h1>Sentiment Analysis</h1>
+            <form action="/predict" method="post">
+                <textarea name="text" placeholder="Enter your text here..."></textarea><br>
+                <input type="submit" value="Analyze">
+            </form>
+            <div id="result"></div>
+            <script>
+                document.querySelector('form').addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    var text = document.querySelector('textarea').value;
+                    fetch('/predict', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: 'text=' + encodeURIComponent(text)
+                    }).then(response => response.json())
+                      .then(data => {
+                          document.getElementById('result').innerText = 'Sentiment: ' + data.sentiment + ', Score: ' + data.score;
+                      });
+                });
+            </script>
+        </body>
+        </html>
+    ''')
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    text = request.form['text']
+
+    emotion_pred, emotion_score = predict_sentiment(emotion_model, emotion_tokenizer, text, emotion_labels)
+    # tweet_pred, tweet_score = predict_sentiment(tweet_model, tweet_tokenizer, text, sentiment_labels)
+    review_pred, review_score = predict_sentiment(review_model, review_tokenizer, text, sentiment_labels)
+
+    # Choose the prediction with the highest score
+    if emotion_score > tweet_score and emotion_score > review_score:
+        final_pred = emotion_pred
+        final_score = emotion_score
+    # elif tweet_score > review_score:
+    #     final_pred = tweet_pred
+    #     final_score = tweet_score
+    else:
+        final_pred = review_pred
+        final_score = review_score
+
+    return jsonify({'sentiment': final_pred, 'score': final_score})
+
+if __name__ == "__main__":
+    app.run()
