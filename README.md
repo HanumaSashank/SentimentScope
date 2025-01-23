@@ -47,7 +47,10 @@ SentimentScope is an AI-driven web platform designed for precise sentiment and e
    1. Clone the repository: ```git clone https://github.com/YourUsername/SentimentScope.git```
    2. Install dependencies: pip install all the above mentioned libraries required for this project
    3. Start the web application: ```python WebApp.py```
-   4. Access the application at ```http://localhost:3000```
+   4. Access the application at ```http://localhost:3000```\
+ **Web Application Interface**
+![image](https://github.com/user-attachments/assets/32f4ddcb-6d13-4c76-a730-bcc57c7f8a91)
+
 
 
 
