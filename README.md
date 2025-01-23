@@ -39,6 +39,15 @@ SentimentScope is an AI-driven web platform designed for precise sentiment and e
  - Twitter Sentiment Analysis: F1-scores above 0.89 across all sentiment classes.
  - Product Reviews: Improved consistency with robust accuracy for multi-class sentiment classification.
  - 45 real-time examples tested, achieving 97.8% accuracy in expected outputs.
+## Setup and Usage
+ - Prerequisites
+   - Python 3.7+
+   - Required libraries: ```transformers, pandas, numpy, flask, scikit-learn, torch```
+ - Running the Project
+   1. Clone the repository: ```git clone https://github.com/YourUsername/SentimentScope.git```
+   2. Install dependencies: pip install all the above mentioned libraries required for this project
+   3. Start the web application: ```python WebApp.py```
+   4. Access the application at ```http://localhost:3000```
 
 
 
