@@ -50,6 +50,7 @@ SentimentScope is an AI-driven web platform designed for precise sentiment and e
    4. Access the application at ```http://localhost:3000```\
  **Web Application Interface**
 ![image](https://github.com/user-attachments/assets/32f4ddcb-6d13-4c76-a730-bcc57c7f8a91)
+### For more details refer to the full [project report](https://github.com/user-attachments/files/18528659/Team_04_Milestone_05.2.pdf) and [project presentation](https://github.com/userattachments/files/18528658/SentimentScope.pptx)
 
 
 
